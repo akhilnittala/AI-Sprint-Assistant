@@ -1,7 +1,10 @@
 import requests
 import streamlit as st
 
-API_URL = "http://127.0.0.1:8000/api/v1/sprint-planning"
+API_URL = __import__("os").environ.get(
+    "API_URL",
+    "http://127.0.0.1:8000/api/v1/sprint-planning",
+).rstrip("/")
 
 def api_post(path, payload):
     if path.startswith("/intelligence"):

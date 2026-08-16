@@ -13,6 +13,14 @@ class SprintReviewService:
         self.jira = JiraService()
 
     def get_active_sprints(self):
+        """
+        Return active/current Jira sprints for Sprint Review.
+
+        Prefer Jira Agile API, but fall back to the board's issue data
+        because some Jira configurations do not expose active sprints
+        correctly through /rest/agile/1.0/board/{id}/sprint.
+        """
+
         board_id = int(
             __import__("os").environ.get(
                 "JIRA_BOARD_ID",
@@ -20,21 +28,166 @@ class SprintReviewService:
             )
         )
 
-        response = requests.get(
-            f"{self.jira.url}/rest/agile/1.0/board/"
-            f"{board_id}/sprint",
-            params={
-                "state": "active",
-                "maxResults": 50,
-            },
-            auth=self.jira.auth,
-            headers=self.jira.headers,
-            timeout=30,
-        )
+        # ---------------------------------------------------------
+        # 1. Preferred: Jira Agile active-sprint endpoint
+        # ---------------------------------------------------------
+        try:
+            response = requests.get(
+                f"{self.jira.url}/rest/agile/1.0/board/"
+                f"{board_id}/sprint",
+                params={
+                    "state": "active",
+                    "maxResults": 50,
+                },
+                auth=self.jira.auth,
+                headers=self.jira.headers,
+                timeout=30,
+            )
 
-        response.raise_for_status()
+            if response.ok:
+                values = response.json().get("values", [])
 
-        return response.json().get("values", [])
+                if values:
+                    return values
+
+        except Exception as e:
+            print(
+                f"⚠️ Agile active-sprint lookup failed: {e}"
+            )
+
+        # ---------------------------------------------------------
+        # 2. Fallback: discover sprints from board issues
+        # ---------------------------------------------------------
+        try:
+            response = requests.get(
+                f"{self.jira.url}/rest/agile/1.0/board/"
+                f"{board_id}/issue",
+                params={
+                    "startAt": 0,
+                    "maxResults": 100,
+                    "fields": "summary,status",
+                },
+                auth=self.jira.auth,
+                headers=self.jira.headers,
+                timeout=30,
+            )
+
+            response.raise_for_status()
+
+            issues = response.json().get(
+                "issues",
+                [],
+            )
+
+            discovered = {}
+
+            # Jira sprint custom field is discovered dynamically.
+            sprint_field_id = self.jira._find_sprint_field()
+
+            if not sprint_field_id:
+                print(
+                    "⚠️ Jira Sprint custom field not found"
+                )
+                return []
+
+            # Get issue details including Sprint field.
+            response = requests.get(
+                f"{self.jira.url}/rest/agile/1.0/board/"
+                f"{board_id}/issue",
+                params={
+                    "startAt": 0,
+                    "maxResults": 1000,
+                    "fields": sprint_field_id,
+                },
+                auth=self.jira.auth,
+                headers=self.jira.headers,
+                timeout=60,
+            )
+
+            response.raise_for_status()
+
+            issues = response.json().get(
+                "issues",
+                [],
+            )
+
+            for issue in issues:
+                fields = issue.get("fields", {})
+
+                sprint_value = fields.get(
+                    sprint_field_id
+                )
+
+                if not sprint_value:
+                    continue
+
+                if not isinstance(
+                    sprint_value,
+                    list,
+                ):
+                    sprint_value = [
+                        sprint_value
+                    ]
+
+                for sprint in sprint_value:
+
+                    if not isinstance(
+                        sprint,
+                        dict,
+                    ):
+                        continue
+
+                    sprint_id = sprint.get("id")
+
+                    if not sprint_id:
+                        continue
+
+                    state = str(
+                        sprint.get(
+                            "state",
+                            ""
+                        )
+                    ).lower()
+
+                    if state != "active":
+                        continue
+
+                    discovered[str(sprint_id)] = {
+                        "id": sprint_id,
+                        "name": sprint.get(
+                            "name",
+                            f"Sprint {sprint_id}",
+                        ),
+                        "state": "ACTIVE",
+                        "startDate": sprint.get(
+                            "startDate"
+                        ),
+                        "endDate": sprint.get(
+                            "endDate"
+                        ),
+                        "originBoardId": sprint.get(
+                            "originBoardId",
+                            board_id,
+                        ),
+                    }
+
+            result = list(
+                discovered.values()
+            )
+
+            if result:
+                print(
+                    f"✅ Discovered {len(result)} active "
+                    f"sprint(s) from Jira board issues"
+                )
+
+            return result
+
+        except Exception as e:
+            print(
+                f"❌ Unable to discover active sprints: {e}"
+            )
+            return []
 
     def _get_sprint_issues(self, sprint_id):
         board_id = int(
@@ -289,6 +442,9 @@ class SprintReviewService:
                 "latest_comment": latest_comment,
                 "comment_author": comment_author,
                 "comment_date": comment_date,
+                "pull_requests": self.jira.get_pull_requests(
+                    issue["id"]
+                ),
             }
 
             normalized = status.lower()

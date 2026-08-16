@@ -346,14 +346,18 @@ class JiraService:
 
     def get_sprint_review(self, sprint_id):
         """
-        Build Sprint Review data for ONE sprint only.
+        Build Sprint Review data for ONE selected sprint only.
 
-        This deliberately does NOT use get_backlog(), so Sprint Review
-        doesn't process the entire Jira backlog.
+        PRs are collected directly from the Jira Git Pull Request field,
+        Docs Pull Request field, and Jira comments for IN REVIEW issues.
         """
+
         try:
-            # Fetch only issues belonging to the selected sprint.
-            jql = f'project = "{self.project_key}" AND sprint = {sprint_id} ORDER BY key'
+            jql = (
+                f'project = "{self.project_key}" '
+                f'AND sprint = {sprint_id} '
+                f'ORDER BY key'
+            )
 
             response = requests.get(
                 f"{self.url}/rest/api/2/search",
@@ -404,6 +408,7 @@ class JiraService:
                 normalized = normalize_status(status)
 
                 assignee = fields.get("assignee")
+
                 if isinstance(assignee, dict):
                     assignee = (
                         assignee.get("displayName")
@@ -411,28 +416,126 @@ class JiraService:
                         or assignee.get("emailAddress")
                     )
 
-                item = {
-                    "key": key,
-                    "title": title,
-                    "status": status,
-                    "assignee": assignee or "Unassigned",
-                    "url": f"{self.url}/browse/{key}",
-                    "pull_requests": [],
-                }
+                # -------------------------------------------------
+                # Story points
+                # -------------------------------------------------
 
-                # Only call Jira development APIs for IN REVIEW.
+                story_points = (
+                    fields.get("customfield_10028")
+                    or fields.get("customfield_10016")
+                    or fields.get("story_points")
+                    or 0
+                )
+
+                try:
+                    story_points = float(story_points or 0)
+
+                    if story_points.is_integer():
+                        story_points = int(story_points)
+
+                except (TypeError, ValueError):
+                    story_points = 0
+
+                # -------------------------------------------------
+                # Latest comment
+                # -------------------------------------------------
+
+                latest_comment = ""
+                comments = fields.get("comment", {})
+
+                if isinstance(comments, dict):
+                    comments = comments.get("comments", [])
+
+                if isinstance(comments, list) and comments:
+                    latest = comments[-1]
+
+                    if isinstance(latest, dict):
+                        latest_comment = (
+                            latest.get("body")
+                            or latest.get("renderedBody")
+                            or ""
+                        )
+
+                        if isinstance(latest_comment, dict):
+                            latest_comment = str(
+                                latest_comment.get("content", "")
+                            )
+
+                        latest_comment = str(latest_comment)
+
+                # -------------------------------------------------
+                # Comment-derived status
+                # -------------------------------------------------
+
+                comment_status = (
+                    normalized
+                    if normalized
+                    else "UNKNOWN"
+                )
+
+                # -------------------------------------------------
+                # IMPORTANT:
+                # Jira "Review" is the INREVIEW state.
+                # -------------------------------------------------
+
                 if normalized in {
                     "INREVIEW",
                     "REVIEW",
-                    "CODEVIEW",
                     "CODEREVIEW",
+                    "CODEVIEW",
                 }:
-                    item["pull_requests"] = self.get_pull_requests(
-                        issue.get("id") or key
-                    )
-                    in_review.append(item)
+                    comment_status = "REVIEW"
 
                 elif normalized in {
+                    "DONE",
+                    "CLOSED",
+                    "RESOLVED",
+                }:
+                    comment_status = "CLOSED"
+
+                elif normalized in {
+                    "INPROGRESS",
+                    "INDEVELOPMENT",
+                }:
+                    comment_status = "IN_PROGRESS"
+
+                # -------------------------------------------------
+                # Pull Requests
+                #
+                # Only fetch PRs for Review items.
+                # This prevents Sprint Review from doing PR
+                # lookups for every sprint issue.
+                # -------------------------------------------------
+
+                pull_requests = []
+
+                if normalized in {
+                    "INREVIEW",
+                    "REVIEW",
+                    "CODEREVIEW",
+                    "CODEVIEW",
+                }:
+                    pull_requests = self.get_pull_requests(
+                        issue.get("id") or key
+                    )
+
+                    print(
+                        f"Sprint Review PRs: "
+                        f"{key} -> {len(pull_requests)}"
+                    )
+
+                item = {
+                    "key": key,
+                    "title": title,
+                    "assignee": assignee or "Unassigned",
+                    "status": status,
+                    "comment_status": comment_status,
+                    "story_points": story_points,
+                    "latest_comment": latest_comment,
+                    "pull_requests": pull_requests,
+                }
+
+                if normalized in {
                     "DONE",
                     "CLOSED",
                     "RESOLVED",
@@ -440,12 +543,23 @@ class JiraService:
                     done.append(item)
 
                 elif normalized in {
+                    "INREVIEW",
+                    "REVIEW",
+                    "CODEREVIEW",
+                    "CODEVIEW",
+                }:
+                    in_review.append(item)
+
+                elif normalized in {
                     "INPROGRESS",
                     "INDEVELOPMENT",
                 }:
                     in_progress.append(item)
 
-            # Resolve sprint name without scanning the backlog.
+            # -------------------------------------------------
+            # Sprint name
+            # -------------------------------------------------
+
             sprint_name = str(sprint_id)
 
             try:
@@ -458,31 +572,52 @@ class JiraService:
 
                 if sprint_response.ok:
                     sprint_data = sprint_response.json()
+
                     sprint_name = (
                         sprint_data.get("name")
                         or sprint_name
                     )
+
             except Exception:
                 pass
+
+            total = (
+                len(done)
+                + len(in_review)
+                + len(in_progress)
+            )
 
             return {
                 "sprint_id": str(sprint_id),
                 "sprint_name": sprint_name,
+
                 "summary": {
                     "done": len(done),
+                    "closed": len(done),
                     "in_review": len(in_review),
+                    "review": len(in_review),
                     "in_progress": len(in_progress),
-                    "total": len(done) + len(in_review) + len(in_progress),
+                    "total": total,
+                    "other": max(
+                        0,
+                        len(issues) - total,
+                    ),
                 },
+
                 "done": done,
+                "closed": done,
                 "in_review": in_review,
+                "review": in_review,
                 "in_progress": in_progress,
+                "other": [],
             }
 
         except Exception as e:
-            print(f"Error loading sprint review for sprint {sprint_id}: {e}")
+            print(
+                f"Error loading sprint review "
+                f"for sprint {sprint_id}: {e}"
+            )
             raise
-
 
     def get_backlog(self):
         """
