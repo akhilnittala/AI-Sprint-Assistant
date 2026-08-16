@@ -1,0 +1,10 @@
+{
+  "id": "gitops-team",
+  "name": "GitOps Engineering Team",
+  "developers": 6,
+  "qa_engineers": 2,
+  "sprint_duration_days": 21,
+  "people": 8,
+  "capacity_per_person": 6,
+  "velocity": 50
+}

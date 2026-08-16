@@ -1,0 +1,14 @@
+{
+  "GITOPS-8846": {
+    "confidence": 80,
+    "content_hash": "814e4335e33247f3bb3881ac807491a07ef85d69380628376018d31ad23d4520",
+    "estimated_points": 8,
+    "reason": "Complex implementation of source integrity policies with backward compatibility, full commit history verification, and multi-source support requires significant development and testing effort."
+  },
+  "GITOPS-9611": {
+    "confidence": 80,
+    "content_hash": "937390396cabc64371cc0196a8f2a152b41b4b72bf097536682a19221c9446c1",
+    "estimated_points": 5,
+    "reason": "Modifies Argo CD's namespace discovery logic to use labels, requires integration testing across multiple instances, and involves changing existing sourceNamespace handling logic."
+  }
+}

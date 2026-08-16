@@ -1,0 +1,32 @@
+[
+  {
+    "id": "SPRINT-19",
+    "name": "Sprint 19",
+    "committed_points": 30,
+    "completed_points": 27
+  },
+  {
+    "id": "SPRINT-20",
+    "name": "Sprint 20",
+    "committed_points": 32,
+    "completed_points": 30
+  },
+  {
+    "id": "SPRINT-21",
+    "name": "Sprint 21",
+    "committed_points": 32,
+    "completed_points": 29
+  },
+  {
+    "id": "SPRINT-22",
+    "name": "Sprint 22",
+    "committed_points": 30,
+    "completed_points": 28
+  },
+  {
+    "id": "SPRINT-23",
+    "name": "Sprint 23",
+    "committed_points": 34,
+    "completed_points": 30
+  }
+]

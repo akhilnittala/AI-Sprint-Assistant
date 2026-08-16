@@ -1,0 +1,82 @@
+[
+  {
+    "id": "TLS-101",
+    "title": "Add TLS 1.3 support",
+    "description": "Add TLS 1.3 configuration support to the GitOps operator.",
+    "story_points": 5,
+    "priority": "HIGH",
+    "status": "TODO",
+    "dependencies": [],
+    "labels": ["security", "tls"]
+  },
+  {
+    "id": "TLS-102",
+    "title": "Add TLS cipher configuration tests",
+    "description": "Add integration tests covering TLS cipher configuration.",
+    "story_points": 3,
+    "priority": "HIGH",
+    "status": "TODO",
+    "dependencies": ["TLS-101"],
+    "labels": ["security", "tls", "testing"]
+  },
+  {
+    "id": "REDIS-101",
+    "title": "Improve Redis HA recovery",
+    "description": "Improve Redis HA recovery when all Redis nodes temporarily lose the master.",
+    "story_points": 8,
+    "priority": "HIGH",
+    "status": "TODO",
+    "dependencies": [],
+    "labels": ["redis", "ha", "reliability"]
+  },
+  {
+    "id": "REDIS-102",
+    "title": "Add Redis HA recovery tests",
+    "description": "Add automated tests for Redis master election and recovery.",
+    "story_points": 5,
+    "priority": "MEDIUM",
+    "status": "TODO",
+    "dependencies": ["REDIS-101"],
+    "labels": ["redis", "ha", "testing"]
+  },
+  {
+    "id": "GITOPS-101",
+    "title": "Add TLS compliance reporting",
+    "description": "Expose TLS compliance status for GitOps components.",
+    "story_points": 3,
+    "priority": "HIGH",
+    "status": "TODO",
+    "dependencies": [],
+    "labels": ["gitops", "tls", "compliance"]
+  },
+  {
+    "id": "GITOPS-102",
+    "title": "Add TLS compliance dashboard",
+    "description": "Create a dashboard showing TLS compliance across GitOps components.",
+    "story_points": 5,
+    "priority": "MEDIUM",
+    "status": "TODO",
+    "dependencies": ["GITOPS-101"],
+    "labels": ["gitops", "tls", "dashboard"]
+  },
+  {
+    "id": "TEST-101",
+    "title": "Improve operator unit test coverage",
+    "description": "Increase unit test coverage for operator configuration logic.",
+    "story_points": 2,
+    "priority": "LOW",
+    "status": "TODO",
+    "dependencies": [],
+    "labels": ["testing"]
+  },
+  {
+    "id": "DOC-101",
+    "title": "Update TLS configuration documentation",
+    "description": "Document TLS configuration and supported cipher suites.",
+    "story_points": 2,
+    "priority": "LOW",
+    "status": "TODO",
+    "dependencies": [],
+    "labels": ["documentation", "tls"]
+  }
+]
