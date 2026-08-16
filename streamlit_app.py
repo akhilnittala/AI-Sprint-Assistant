@@ -812,7 +812,7 @@ with st.expander("🧠 Backlog Intelligence", expanded=False):
 
             try:
                 similarity_response = requests.post(
-                    "http://127.0.0.1:8000/api/v1/intelligence/stories/similar",
+                    "https://ai-sprint-assistant.onrender.com/api/v1/intelligence/stories/similar",
                     json={"stories": backlog.get("stories", [])},
                     timeout=120,
                 )
