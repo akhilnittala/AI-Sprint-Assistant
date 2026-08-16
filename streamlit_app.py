@@ -8,7 +8,7 @@ API_URL = __import__("os").environ.get(
 
 def api_post(path, payload):
     if path.startswith("/intelligence"):
-        url = f"http://127.0.0.1:8000/api/v1{path}"
+        url = f"https://ai-sprint-assistant.onrender.com/api/v1{path}"
     else:
         url = f"{API_URL}{path}"
 
